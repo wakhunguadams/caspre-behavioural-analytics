@@ -1,9 +1,11 @@
-from fastapi import APIRouter, File, UploadFile, Form, Depends, HTTPException, BackgroundTasks, status
-from typing import Annotated
+from fastapi import APIRouter, File, UploadFile, Form, Depends, HTTPException, BackgroundTasks, status, Header
+from typing import Annotated, List
 from uuid import uuid4
 from datetime import datetime
+from io import BytesIO
+import json
 from app.schemas.requests import BankStatementUploadRequest, BehavioralAnalyticsJob, JobStatusResponse
-from app.schemas.responses import BehavioralAnalyticsResult
+from app.schemas.response import BehavioralAnalyticsResult, Transaction
 from app.core.config import settings
 from app.core.security import get_tenant_and_customer_ids
 from app.core.messaging import send_message_to_kafka
@@ -12,8 +14,12 @@ from app.services.feature_engineer import perform_feature_engineering
 from app.services.scoring_model import calculate_behavioral_score
 from app.services.llm_insights import generate_behavioral_summary
 from app.utils.file_storage import upload_file_to_cloud
+from app.modules.bank_transactions import process_bank_transactions
+from app.modules.crb_data import process_crb_data  
+from app.modules.mobile_money_transactions import process_mobile_money_transactions
+from app.schemas.unified_requests import CRBDataInput
 from app.core.db import get_mongo_db, database # Import database for MySQL operations
-from app.utils.tenant_config import get_tenant_config, create_default_tenant_config
+from app.utils.tenant_config import get_tenant_config, create_default_tenant_config, update_tenant_config
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from databases import Database as MySQLDatabase # Alias to avoid conflict with Mongo
 
@@ -289,14 +295,14 @@ async def get_analytics_results(job_id: str, mongo_db: Annotated[AsyncIOMotorDat
 @router.put("/tenant-config/{company_id}", summary="Update tenant-specific configuration")
 async def update_tenant_configuration(
     company_id: str,
-    config_updates: Annotated[dict, Form(description="JSON string of updates")], # Allow JSON string in form-data for testing
-    auth_ids: Annotated[dict, Depends(get_tenant_and_customer_ids)] # Ensure tenant ID matches path
+    auth_ids: Annotated[dict, Depends(get_tenant_and_customer_ids)], # Use proper dependency injection
+    config_updates: str = Form(description="JSON string of updates") # Allow JSON string in form-data for testing
 ):
     """
     Updates the configuration for a specific tenant, including customization for
     transaction categorization, LLM tone, and behavioral scoring weights.
     """
-    # Verify company_id from path matches header (or implement proper admin auth)
+    # Verify company_id from path matches authenticated company_id
     if company_id != auth_ids["company_id"]:
         raise HTTPException(status_code=403, detail="Forbidden: Company ID mismatch.")
 
@@ -310,6 +316,72 @@ async def update_tenant_configuration(
     if not updated_config:
         raise HTTPException(status_code=404, detail="Tenant configuration not found to update.")
     return {"message": "Tenant configuration updated successfully", "config": updated_config}
+
+@router.post(
+    "/bank-analytics",
+    summary="Process bank transactions for behavioral score"
+)
+async def process_bank_statement(
+    transactions: List[Transaction],
+    auth_ids: Annotated[dict, Depends(get_tenant_and_customer_ids)],
+):
+    """
+    Processes bank transactions and returns a behavioral score specific to bank data.
+    """
+    company_id = auth_ids["company_id"]
+    customer_id = auth_ids["customer_id"]
+    
+    try:
+        # Process bank transactions
+        result = await process_bank_transactions(transactions, company_id, customer_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process bank transactions: {e}")
+
+
+@router.post(
+    "/crb-analytics",
+    summary="Process CRB data for behavioral score"
+)
+async def process_crb_data_endpoint(
+    crb_data: CRBDataInput,
+    auth_ids: Annotated[dict, Depends(get_tenant_and_customer_ids)],
+):
+    """
+    Processes CRB data and returns a behavioral score specific to CRB data.
+    """
+    company_id = auth_ids["company_id"]
+    customer_id = auth_ids["customer_id"]
+
+    try:
+        # Process CRB data
+        result = await process_crb_data(crb_data.dict(), company_id, customer_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process CRB data: {e}")
+
+
+@router.post(
+    "/mobile-money-analytics",
+    summary="Process mobile money transactions for behavioral score"
+)
+async def process_mobile_money(
+    transactions: List[Transaction],
+    auth_ids: Annotated[dict, Depends(get_tenant_and_customer_ids)],
+):
+    """
+    Processes mobile money transactions and returns a behavioral score specific to mobile money data.
+    """
+    company_id = auth_ids["company_id"]
+    customer_id = auth_ids["customer_id"]
+
+    try:
+        # Process mobile money transactions
+        result = await process_mobile_money_transactions(transactions, company_id, customer_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process mobile money transactions: {e}")
+
 
 @router.get("/tenant-config/{company_id}", summary="Get tenant-specific configuration")
 async def get_tenant_configuration(

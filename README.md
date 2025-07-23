@@ -1,72 +1,55 @@
-Behavioral Analytics Microservice
-Table of Contents
-Overview
+# Caspre Behavioral Analytics Microservice 2.0
 
-Features
+## Table of Contents
+- [Overview](#overview)
+- [Core Modules](#core-modules)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Technologies Used](#technologies-used)
+- [Setup and Installation](#setup-and-installation)
+- [API Endpoints](#api-endpoints)
+- [Module-Specific Analytics](#module-specific-analytics)
+- [Testing](#testing)
+- [Contributing](#contributing)
 
-Architecture
+## Overview
+The Behavioral Analytics Microservice is a comprehensive financial analysis platform designed to process and analyze multiple data sources for behavioral insights and scoring. The system provides **three independent modules** that each generate their own behavioral scores:
 
-Technologies Used
+1. **Bank Transactions Analytics** - Analyzes traditional bank statement data
+2. **Credit Reference Bureau (CRB) Analytics** - Processes credit history and payment performance data
+3. **Mobile Money Analytics** - Evaluates mobile money transaction patterns (M-Pesa, Airtel Money, etc.)
 
-Setup and Installation
+Each module operates independently, providing specialized scoring based on its specific data type, allowing financial institutions to get targeted insights from different aspects of a customer's financial behavior.
 
-Prerequisites
-
-Environment Variables (.env)
-
-Database Setup (MySQL & MongoDB)
-
-Kafka Setup
-
-Cloud Provider Setup (GCP / AWS)
-
-Installation Steps
-
-Running the Application
-
-API Endpoints
-
-Asynchronous Processing (Kafka)
-
-Tenant-Specific Configuration
-
-Extensibility and Customization
-
-Future Enhancements
-
-Contributing
-
-License
-
-1. Overview
-The Behavioral Analytics Microservice is a core component of a larger financial ecosystem, designed to ingest, process, and analyze customer bank statements to derive valuable behavioral insights and a comprehensive behavioral score. This service automates the extraction of financial data, identifies spending patterns, income stability, debt servicing capacity, and detects anomalies, ultimately providing a holistic view of an individual's financial behavior.
-
-This microservice is built with scalability, extensibility, and multi-tenancy in mind, allowing for custom configurations per financial institution (tenant) and integrating seamlessly with other services via asynchronous messaging.
+This microservice is built with scalability, extensibility, and multi-tenancy in mind, allowing for domain-specific configurations per financial institution (tenant) and integrating seamlessly with other services via asynchronous messaging.
 
 2. Features
-Bank Statement Ingestion: Accepts PDF, JPG, and PNG bank statements.
 
-Intelligent Document Processing (IDP): Extracts structured transaction data from unstructured bank statements using cloud-based IDP services (Google Document AI / AWS Textract) with a fallback to rule-based text extraction.
+### Core Features
+**Multi-Source Data Processing**: Handles three distinct financial data sources with specialized analytics for each.
 
-Financial Feature Engineering: Transforms raw transactions into meaningful financial metrics and indicators (e.g., average monthly income, spending-to-income ratio, savings rate, categorized spending).
+**Independent Behavioral Scoring**: Each module generates its own behavioral score (0-1000) based on domain-specific rules and algorithms.
 
-Transaction Categorization: Automatically categorizes transactions based on configurable rules, supporting tenant-specific customization.
+**Bank Statement Processing**: Accepts PDF, JPG, and PNG bank statements with intelligent document processing (IDP).
 
-Behavioral Scoring: Calculates a quantitative behavioral score based on engineered features and pre-defined rules/weights.
+**Real-time Analytics**: Direct data processing endpoints for immediate behavioral scoring without file uploads.
 
-Anomaly Detection: Identifies unusual or suspicious transaction patterns.
+**Intelligent Document Processing (IDP)**: Extracts structured transaction data from unstructured documents using Google Document AI / AWS Textract.
 
-Explainable AI (XAI): Provides insights into the factors influencing the behavioral score using SHAP values.
+**Advanced Feature Engineering**: Transforms raw data into meaningful financial metrics and behavioral indicators.
 
-LLM-Powered Insights: Generates human-readable narrative summaries of financial behavior using large language models (Google Gemini), with configurable tone and content.
+**Domain-Specific Transaction Categorization**: Automatically categorizes transactions with tenant-specific customization.
 
-Asynchronous Processing: Utilizes Kafka for decoupled and scalable processing of bank statements.
+**Comprehensive Anomaly Detection**: Identifies unusual patterns across all data sources.
 
-Multi-Tenancy: Supports different financial institutions (tenants) with customizable rules, weights, and LLM tone.
+**Explainable Scoring**: Provides detailed breakdowns of scoring rules and their impact on final scores.
 
-Cloud Storage Integration: Stores raw and processed bank statements securely in Google Cloud Storage (GCS) or AWS S3.
+**Multi-Tenancy**: Supports different financial institutions with customizable scoring weights and rules.
 
-API Interface: Provides RESTful API endpoints for file upload, job status tracking, and results retrieval.
+**Asynchronous Processing**: Utilizes Kafka for scalable document processing workflows.
+
+**Cloud Integration**: Secure storage integration with GCS/AWS S3.
 
 3. Architecture
 The Behavioral Analytics Microservice is designed with a microservices-oriented architecture pattern, leveraging asynchronous communication and cloud-native services.
@@ -384,50 +367,216 @@ The API will be available at http://localhost:8000. You can access the interacti
 6. API Endpoints
 All API endpoints are prefixed with /api/v1.
 
-1. Upload Bank Statement for Analysis
-Endpoint: POST /api/v1/upload-bank-statement
-Summary: Upload a bank statement file (PDF, JPG, PNG) to initiate behavioral analysis.
+## Document Processing Endpoints
+
+### 1. Upload Bank Statement for Analysis
+Endpoint: POST /api/v1/upload-bank-statement  
+Summary: Upload a bank statement file (PDF, JPG, PNG) for document processing and analysis.  
 Headers:
+- X-Company-ID: Your tenant/company identifier
+- X-Customer-ID: The customer's unique identifier
 
-X-Company-ID: Your tenant/company identifier.
-
-X-Customer-ID: The customer's unique identifier.
 Request Body (Form Data):
+- file: The bank statement file (e.g., bank_statement.pdf)
+- callback_url (optional): Callback URL for job completion/failure notifications
 
-file: The bank statement file (e.g., bank_statement.pdf).
-
-callback_url (optional): A URL where the service should send a POST request upon job completion/failure.
 Response: 202 Accepted
-
-JSON
-
+```json
 {
   "job_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
-  "status": "QUEUED",
+  "status": "QUEUED", 
   "message": "Bank statement uploaded and analysis job queued. Use the job_id to check status."
 }
-2. Get Job Status
-Endpoint: GET /api/v1/analytics/status/{job_id}
-Summary: Retrieve the current processing status of an analysis job.
+```
+
+## Direct Analytics Endpoints
+
+### 2. Bank Transactions Analytics
+Endpoint: POST /api/v1/bank-analytics  
+Summary: Process bank transaction data and generate behavioral score.  
+Headers:
+- X-Company-ID: Your tenant/company identifier
+- X-Customer-ID: The customer's unique identifier
+
+Request Body (JSON):
+```json
+[
+  {
+    "date": "2023-01-01",
+    "description": "SALARY DEPOSIT", 
+    "amount": 150000.0,
+    "type": "credit",
+    "balance_after": 200000.0
+  },
+  {
+    "date": "2023-01-02",
+    "description": "RENT PAYMENT",
+    "amount": 50000.0, 
+    "type": "debit",
+    "balance_after": 150000.0
+  }
+]
+```
+
+Response: 200 OK
+```json
+{
+  "bank_behavioral_score": 785.5,
+  "risk_level": "Low Risk",
+  "score_components": {
+    "income_consistency_impact": 50.2,
+    "balance_impact": 30.0,
+    "overdraft_impact": 0,
+    "debt_impact": -10.0,
+    "savings_impact": 25.0,
+    "anomalies_impact": 0
+  },
+  "rule_engine_breakdown": [
+    {
+      "rule_name": "High Average Balance",
+      "condition_met": "Average balance: 175000.00 > 100,000",
+      "adjustment": 100,
+      "new_score_after_adjustment": 650
+    }
+  ],
+  "key_metrics": [...],
+  "categorized_transactions": [...],
+  "anomalies_detected": [...]
+}
+```
+
+### 3. CRB Data Analytics
+Endpoint: POST /api/v1/crb-analytics  
+Summary: Process Credit Reference Bureau data and generate behavioral score.  
+Headers:
+- X-Company-ID: Your tenant/company identifier
+- X-Customer-ID: The customer's unique identifier
+
+Request Body (JSON):
+```json
+{
+  "credit_history_months": 36,
+  "payment_performance_score": 85.0,
+  "recent_late_payments": 1,
+  "credit_utilization_ratio": 25.5,
+  "credit_types": {
+    "credit_cards": 2,
+    "personal_loans": 1,
+    "mortgages": 0
+  },
+  "credit_inquiries": 3,
+  "accounts": [
+    {"account_type": "credit_card", "status": "active"},
+    {"account_type": "personal_loan", "status": "closed"}
+  ]
+}
+```
+
+Response: 200 OK
+```json
+{
+  "crb_behavioral_score": 720.0,
+  "risk_level": "Low Risk",
+  "score_components": {
+    "history_impact": 50,
+    "payment_impact": 70.0,
+    "utilization_impact": 0,
+    "late_payments_impact": -20,
+    "inquiries_impact": 0
+  },
+  "rule_engine_breakdown": [
+    {
+      "rule_name": "Long Credit History",
+      "condition_met": "Credit History Length (36 months) >= 24.",
+      "adjustment": 50,
+      "new_score_after_adjustment": 600
+    }
+  ],
+  "key_metrics": [...],
+  "anomalies_detected": [...]
+}
+```
+
+### 4. Mobile Money Analytics
+Endpoint: POST /api/v1/mobile-money-analytics  
+Summary: Process mobile money transaction data and generate behavioral score.  
+Headers:
+- X-Company-ID: Your tenant/company identifier
+- X-Customer-ID: The customer's unique identifier
+
+Request Body (JSON):
+```json
+[
+  {
+    "date": "2023-01-01",
+    "description": "M-PESA Send Money",
+    "amount": 5000.0,
+    "type": "debit"
+  },
+  {
+    "date": "2023-01-01", 
+    "description": "M-PESA Receive Money",
+    "amount": 10000.0,
+    "type": "credit"
+  },
+  {
+    "date": "2023-01-02",
+    "description": "Fuliza Loan Repayment",
+    "amount": 500.0,
+    "type": "debit"
+  }
+]
+```
+
+Response: 200 OK
+```json
+{
+  "mobile_money_behavioral_score": 650.0,
+  "risk_level": "Medium Risk",
+  "score_components": {
+    "spending_consistency_impact": 30,
+    "loan_dependency_impact": 20,
+    "remittance_impact": 40,
+    "anomalies_impact": 0,
+    "inclusion_impact": 50,
+    "social_network_impact": 0
+  },
+  "rule_engine_breakdown": [
+    {
+      "rule_name": "Digital Financial Inclusion",
+      "condition_met": "Active mobile money usage indicates digital financial inclusion", 
+      "adjustment": 50,
+      "new_score_after_adjustment": 550
+    }
+  ],
+  "key_metrics": [...],
+  "categorized_transactions": [...],
+  "anomalies_detected": [...]
+}
+```
+
+## Job Management Endpoints
+### 5. Get Job Status
+Endpoint: GET /api/v1/analytics/status/{job_id}  
+Summary: Retrieve the current processing status of a document analysis job.  
 Parameters:
+- job_id (path): The unique ID of the analysis job
 
-job_id (path): The unique ID of the analysis job.
 Response: 200 OK (or 404 Not Found if job_id doesn't exist)
-
-JSON
-
+```json
 {
   "job_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
   "status": "PROCESSING",
   "message": "Performing feature engineering...",
-  "result_url": null # Will be present if status is COMPLETED
+  "result_url": null
 }
-3. Get Analysis Results
-Endpoint: GET /api/v1/analytics/results/{job_id}
-Summary: Retrieve the full behavioral analytics results for a completed job.
+```
+### 6. Get Analysis Results  
+Endpoint: GET /api/v1/analytics/results/{job_id}  
+Summary: Retrieve the full behavioral analytics results for a completed document processing job.  
 Parameters:
+- job_id (path): The unique ID of the analysis job
 
-job_id (path): The unique ID of the analysis job.
 Response: 200 OK (or 202 Accepted if still processing, 404 Not Found if job_id invalid, 400 Bad Request if job failed)
 
 JSON
@@ -505,39 +654,47 @@ JSON
   },
   "processed_at": "2023-10-27T10:30:00.123456"
 }
-4. Update Tenant Configuration
-Endpoint: PUT /api/v1/tenant-config/{company_id}
-Summary: Updates configuration settings for a specific tenant.
+## Configuration Management Endpoints
+
+### 7. Update Tenant Configuration
+Endpoint: PUT /api/v1/tenant-config/{company_id}  
+Summary: Updates configuration settings for a specific tenant.  
 Parameters:
+- company_id (path): The tenant's identifier
 
-company_id (path): The tenant's identifier.
 Headers:
+- X-Company-ID: Your tenant/company identifier (must match path parameter)
+- X-Customer-ID: Any valid customer ID (can be placeholder for this endpoint)
 
-X-Company-ID: Your tenant/company identifier (must match path parameter).
+Request Body (Form Data):
+- config_updates: A JSON string containing the fields to update
 
-X-Customer-ID: Any valid customer ID (can be placeholder for this endpoint).
-Request Body (Form Data with config_updates as JSON string):
+Example config_updates:
 
-config_updates: A JSON string containing the fields to update. Example:
-
-JSON
-
+```json
 {
     "language_preference": "sw",
     "transaction_categorization_rules": {
         "m-pesa_deposit": ["m-pesa receive"],
         "groceries": ["supermarket", "grocery", "naivas", "carrefour"]
     },
-    "llm_tone_guidelines": {
-        "professional": true,
-        "concise": true,
-        "avoid_jargon": true
+    "bank_scoring_weights": {
+        "high_balance_bonus": 100,
+        "overdraft_penalty": 120,
+        "emergency_fund_bonus": 80
     },
-    "behavioral_scoring_weights": {
-        "high_spending_penalty": 75,
-        "high_savings_bonus": 30
+    "crb_scoring_weights": {
+        "long_credit_history_bonus": 50,
+        "poor_crb_performance_penalty": 60,
+        "high_credit_utilization_penalty": 70
+    },
+    "mobile_money_scoring_weights": {
+        "consistent_spending_bonus": 30,
+        "high_loan_dependency_penalty": 80,
+        "digital_inclusion_bonus": 50
     }
 }
+```
 Response: 200 OK
 
 JSON
@@ -551,17 +708,15 @@ JSON
     // ... updated configuration
   }
 }
-5. Get Tenant Configuration
-Endpoint: GET /api/v1/tenant-config/{company_id}
-Summary: Retrieves the configuration settings for a specific tenant.
+### 8. Get Tenant Configuration
+Endpoint: GET /api/v1/tenant-config/{company_id}  
+Summary: Retrieves the configuration settings for a specific tenant.  
 Parameters:
+- company_id (path): The tenant's identifier
 
-company_id (path): The tenant's identifier.
 Headers:
-
-X-Company-ID: Your tenant/company identifier (must match path parameter).
-
-X-Customer-ID: Any valid customer ID (can be placeholder for this endpoint).
+- X-Company-ID: Your tenant/company identifier (must match path parameter)
+- X-Customer-ID: Any valid customer ID (can be placeholder for this endpoint)
 Response: 200 OK
 
 JSON
