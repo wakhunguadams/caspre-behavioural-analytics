@@ -1,0 +1,20 @@
+fastapi
+uvicorn[standard]
+python-multipart
+aiofiles
+pydantic==2.7.1 # Ensure compatibility with pydantic-settings
+pydantic-settings # For BaseSettings
+motor             # Async MongoDB driver
+aiomysql          # Async MySQL driver for databases library
+databases[mysql]  # Async ORM for FastAPI/MySQL
+google-cloud-storage # GCS (if using GCP)
+google-cloud-documentai # GCP Document AI (if using GCP)
+google-generativeai # For Gemini API
+scikit-learn      # For basic ML models (e.g., transaction categorization classifier)
+xgboost           # Or lightgbm for scoring model
+pandas            # Data manipulation
+numpy             # Numerical operations
+tsfresh           # Time-series feature extraction (for feature_engineer)
+shap              # Explainable AI (SHAP) - for score_explanation
+sqlalchemy==2.0.29 # Specify version for stability
+apache-kafka-python # For KafkaProducer/Consumer
